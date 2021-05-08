@@ -7,7 +7,7 @@ Clone vm-bhyve cloudinit images
 `USAGE: img-clone <template> <target> <userdata> [<instance_config>]`
 
 `img-clone` provides a utility to clone vm-bhyve cloud-init enabled images and
-dynamiclly update the cloud-init user data (re-generating the seed.iso) 
+dynamically update the cloud-init user data (re-generating the seed.iso) 
 
 The source `template` should be a cloud-init enabled vm-bhyve instance (the
 utility will use the latest snapshot by default - to use a specific snapshot
