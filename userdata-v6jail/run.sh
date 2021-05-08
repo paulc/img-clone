@@ -98,38 +98,38 @@ _log "install -v -m 644 ./files/devfs.rules /etc"
 
 # Configure IPFW
 if [ "${MODE}" = "ROUTED" ]; then
-    _log "install -v -m 755 ./files/ipfw.rules-routed /etc/ipfw.rules"
+    NAT64_NETWORK="${ROUTED_NETWORK}"
 else
-    _log "install -v -m 755 ./files/ipfw.rules-bridged /etc/ipfw.rules"
+    NAT64_NETWORK="${IPV6_ADDRESS}/64"
 fi
+_log "install -v -m 755 ./files/ipfw.rules /etc/ipfw.rules"
 _log "ex -s /etc/ipfw.rules" <<EOM
-%s/__IPV4_ADDRESS__/${IPV4_ADDRESS}/gp
-%s/__IPV6_ADDRESS__/${IPV6_ADDRESS}/gp
-%s/__IPV6_NETWORK__/${ROUTED_NETWORK}/gp
+%s!__IPV4_ADDRESS__!${IPV4_ADDRESS}!gp
+%s!__IPV6_ADDRESS__!${IPV6_ADDRESS}!gp
+%s!__NAT64_NETWORK__!${NAT64_NETWORK}!gp
 wq
 EOM
 
 # Configure knot
+if [ "${MODE}" = "ROUTED" ]; then
+    KNOT_IPV6="${ROUTED_NETWORK_IPV6}"
+else
+    KNOT_IPV6="${IPV6_ADDRESS}"
+fi
+
 _log "install -v -m 644 ./files/knot.conf /usr/local/etc/knot"
 _log "ex -s /usr/local/etc/knot/knot.conf" <<EOM
 %s/__HOSTNAME__/${HOSTNAME}/gp
+%s/__IPV6_ADDRESS__/${KNOT_IPV6}/gp
 wq
 EOM
 
 _log "install -v -m 644 ./files/knot.zone /var/db/knot/${HOSTNAME}.zone"
-if [ "${MODE}" = "ROUTED" ]; then
-    _log "ex -s /var/db/knot/${HOSTNAME}.zone" <<EOM
+_log "ex -s /var/db/knot/${HOSTNAME}.zone" <<EOM
 %s/__HOSTNAME__/${HOSTNAME}/gp
-%s/__IPV6_ADDRESS__/${ROUTED_NETWORK_IPV6/gp
+%s/__IPV6_ADDRESS__/${KNOT_IPV6}/gp
 wq
 EOM
-else
-    _log "ex -s /var/db/knot/${HOSTNAME}.zone" <<EOM
-%s/__HOSTNAME__/${HOSTNAME}/gp
-%s/__IPV6_ADDRESS__/${IPV6_ADDRESS/gp
-wq
-EOM
-fi
 
 # Cosmetic tidy-up
 _log "uname -a | tee /etc/motd"
