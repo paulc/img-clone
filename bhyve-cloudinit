@@ -1,0 +1,81 @@
+#!/bin/sh
+
+# KEYWORD: firstboot
+# PROVIDE: bhyve_cloudinit
+# REQUIRE: NETWORKING
+# BEFORE: LOGIN
+
+. /etc/rc.subr
+
+: ${bhyve_cloudinit_enable:="NO"}
+
+name="bhyve_cloudinit"
+rcvar="bhyve_cloudinit_enable"
+start_cmd="bhyve_cloudinit_run"
+stop_cmd=":"
+
+yaml_get() {
+    # XXX This doesn't really work XXX
+    # Try to get single section from YAML file
+    # Only works in *very* limited circumstances
+    awk -v k="${1?Usage: yaml_get_section <section>}" '
+            /^[[:space:]]*$/    { next }
+            /^[[:space:]]*#/    { next }
+            "^" $0 ":" ~ k      { s=1; next }
+            /^[[:alnum:]]/      { s=0; next }
+            s == 1              { sub("[[:space:]]*-[[:space:]]*",""); print }
+    '
+}
+
+handle_cloudconfig() {
+    # Add ssh-keys
+    echo Setting ssh-keys
+    ( umask 077
+      mkdir /root/.ssh
+      yaml_get ssh_authorized_keys </mnt/user-data | tee /root/.ssh/authorized_keys
+    )
+
+    # Enable sshd
+    sysrc sshd_enable=YES
+    sysrc sshd_flags="-o PermitRootLogin=prohibit-password"
+    service sshd start
+
+    # Install packages
+    ASSUME_ALWAYS_YES=yes pkg bootstrap | cat
+    pkg update 
+    yaml_get packages </mnt/user-data | xargs pkg install -y
+
+    # Runcmd
+    yaml_get runcmd </mnt/user-data | sh
+}
+
+bhyve_cloudinit_run() {
+    # Mount cloud-init iso
+    if mount -t cd9660 /dev/cd0 /mnt
+    then
+        echo "Starting cloudinit"
+        
+        # Set hostname
+        hostname="$(awk '/local-hostname:/ { print $2 }' /mnt/meta-data)"
+        sysrc hostname="${hostname}"
+        hostname "${hostname}"
+
+        if [ $(head -1 /mnt/user-data) == '#cloud-config' ]
+        then
+            handle_cloudconfig
+        elif [ $(head -1 /mnt/user-data) == '#!/bin/sh' ]
+        then
+            sh /mnt/user-data
+        else
+            echo "Unsuported user-data type"
+        fi
+
+        # Unmount ISO
+        umount /mnt
+    else
+        echo "Error mounting /dev/cd0"
+    fi
+}
+
+load_rc_config $name
+run_rc_command "$1"

@@ -1,0 +1,3 @@
+# Cloudflare NAT64
+nameserver 2606:4700:4700::64
+nameserver 2606:4700:4700::6400

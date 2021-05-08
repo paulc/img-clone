@@ -1,0 +1,74 @@
+#!/bin/sh
+
+set -o pipefail
+set -o errexit
+set -o nounset
+
+USAGE="USAGE: $0 <template> <target> <userdata> [<instance_config>]"
+
+TEMPLATE="${1?${USAGE}}"
+TARGET="${2?${USAGE}}"
+USERDATA="${3?${USAGE}}"
+INSTANCE_CONFIG="$4"
+
+VMPATH=${VMPATH-/vm}
+VMZPATH=${VMZPATH-zroot/vm}
+
+LATEST_SNAPSHOT="$(basename $(zfs list -rt snap -d 1 -H -s creation -o name ${VMZPATH}/${TEMPLATE} | tail -1))"
+
+# Check utils
+if ! which vm >/dev/null; then
+    echo "ERROR: vm-bhyve must be installed"
+    exit 1
+fi
+
+if ! which genisoimage >/dev/null; then
+    echo "ERROR: genisoimage must be installed"
+    exit 1
+fi
+
+# Check userdata exists
+if ! [ "${USERDATA}" = "-" -o -r "${USERDATA}" -o -d ${USERDATA} ]; then
+    echo "ERROR: ${USERDATA} not readable" >&2
+    exit 1
+fi
+
+# Check instance_config
+if [ -n "${INSTANCE_CONFIG}" ]; then
+    if ! [ "${INSTANCE_CONFIG}" = "-" -o -r "${INSTANCE_CONFIG}" ]; then
+        echo "ERROR: ${INSTANCE_CONFIG} not readable" >&2
+        exit 1
+    fi
+fi
+
+# Clone TEMPLATE
+vm clone "${LATEST_SNAPSHOT}" "${TARGET}" 
+
+# Copy userdata
+if [ "${USERDATA}" = "-" ]; then
+    # STDIN
+    cat > "${VMPATH}/${TARGET}/.cloud-init/user-data"
+elif [ -d "${USERDATA}" ]; then
+    # DIRECTORY
+    cp -R "${USERDATA}/" "${VMPATH}/${TARGET}/.cloud-init/"
+elif [ -r "${USERDATA}" ]; then
+    # FILE
+    cp "${USERDATA}" "${VMPATH}/${TARGET}/.cloud-init/user-data"
+fi
+
+# Copy instance_config -> CONFIG
+if [ -n "${INSTANCE_CONFIG}" ]; then
+    if [ "${INSTANCE_CONFIG}" = "-" ]; then
+        cat > "${VMPATH}/${TARGET}/.cloud-init/CONFIG"
+    elif [ -r "${INSTANCE_CONFIG}" ]; then
+        cp "${INSTANCE_CONFIG}" "${VMPATH}/${TARGET}/.cloud-init/CONFIG"
+    fi
+fi
+
+# Create seed.iso
+if ! genisoimage -output "${VMPATH}/${TARGET}/seed.iso" -volid cidata -joliet -rock -input-charset utf-8 \
+        "${VMPATH}/${TARGET}/.cloud-init" >/dev/null 2>&1; then
+    echo "ERROR: Error writing seed.iso"
+    exit 1
+fi
+
