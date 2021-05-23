@@ -6,12 +6,14 @@ set -o nounset
 
 # Source CONFIG 
 #
-# IPV4_ADDRESS=
-# IPV6_ADDRESS=
+# IPV4_HOST=
+# IPV6_HOST=
+# IPV6_PREFIXLEN=
 # IPV4_ROUTE=
 # IPV6_ROUTE=
-# ROUTED_NETWORK=
-# ROUTED_NETWORK_IPV6=
+# NAT64_NETWORK=
+# NAT64_HOST=
+# NAT64_PREFIXLEN=
 # ROOT_PK=
 # HOSTNAME=
 # MODE=ROUTED|BRIDGED
@@ -65,15 +67,15 @@ _log "sysrc gateway_enable=YES \
 
 if [ "${MODE}" = "ROUTED" ]; then
     _log "sysrc cloned_interfaces=\"bridge0\" \
-                ifconfig_vtnet0=\"inet ${IPV4_ADDRESS} up\" \
-                ifconfig_vtnet0_ipv6=\"inet6 ${IPV6_ADDRESS} prefixlen 64 auto_linklocal up\" \
-                ifconfig_bridge0_ipv6=\"inet6 ${ROUTED_NETWORK_IPV6} prefixlen 64 auto_linklocal up\" \
+                ifconfig_vtnet0=\"inet ${IPV4_HOST} up\" \
+                ifconfig_vtnet0_ipv6=\"inet6 ${IPV6_HOST} prefixlen ${IPV6_PREFIXLEN} auto_linklocal up\" \
+                ifconfig_bridge0_ipv6=\"inet6 ${NAT64_HOST} prefixlen ${NAT64_PREFIXLEN} auto_linklocal up\" \
                 ifconfig_bridge0_alias0=\"inet6 fe80::1\""
 else
     _log "sysrc cloned_interfaces=\"bridge0\" \
                 ifconfig_vtnet0=\"up\" \
-                ifconfig_bridge0=\"inet ${IPV4_ADDRESS} up\" \
-                ifconfig_bridge0_ipv6=\"inet6 ${IPV6_ADDRESS} prefixlen 64 auto_linklocal up\""
+                ifconfig_bridge0=\"inet ${IPV4_HOST} up\" \
+                ifconfig_bridge0_ipv6=\"inet6 ${IPV6_HOST} prefixlen ${IPV6_PREFIXLEN} auto_linklocal up\""
     # Attach vtnet0 - work round 13.0 vtnet bug
     if [ $(uname -K) -gt 1300000 ]; then 
         _log "tee /etc/start_if.bridge0" <<EOM
@@ -98,23 +100,25 @@ _log "install -v -m 644 ./files/devfs.rules /etc"
 
 # Configure IPFW
 if [ "${MODE}" = "ROUTED" ]; then
-    NAT64_NETWORK="${ROUTED_NETWORK}"
+    NAT64_NETWORK="${NAT64_NETWORK}/${NAT64_PREFIXLEN}"
 else
-    NAT64_NETWORK="${IPV6_ADDRESS}/64"
+    NAT64_NETWORK="${IPV6_HOST}/${IPV6_PREFIXLEN}"
 fi
 _log "install -v -m 755 ./files/ipfw.rules /etc/ipfw.rules"
 _log "ex -s /etc/ipfw.rules" <<EOM
-%s!__IPV4_ADDRESS__!${IPV4_ADDRESS}!gp
-%s!__IPV6_ADDRESS__!${IPV6_ADDRESS}!gp
+%s!__IPV4_HOST__!${IPV4_HOST}!gp
+%s!__IPV6_HOST__!${IPV6_HOST}!gp
+%s!__IPV4_NAT__!${IPV4_HOST}!gp
+%s!__NAT64_HOST__!${NAT64_HOST}!gp
 %s!__NAT64_NETWORK__!${NAT64_NETWORK}!gp
 wq
 EOM
 
 # Configure knot
 if [ "${MODE}" = "ROUTED" ]; then
-    KNOT_IPV6="${ROUTED_NETWORK_IPV6}"
+    KNOT_IPV6="${NAT64_HOST}"
 else
-    KNOT_IPV6="${IPV6_ADDRESS}"
+    KNOT_IPV6="${IPV6_HOST}"
 fi
 
 _log "install -v -m 644 ./files/knot.conf /usr/local/etc/knot"
