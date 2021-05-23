@@ -182,6 +182,7 @@ _log "uname -a | tee /jail/base/etc/motd"
 _log "ifconfig bridge0 inet || ifconfig bridge0 create"
 
 # Use hostname as salt for v6 (prevents jail names colliding on same network)
+_log "hostname ${HOSTNAME}"
 SALT=$(/usr/local/bin/python3 -c 'import hashlib,subprocess;print(hashlib.md5(subprocess.run("hostname",capture_output=True).stdout).hexdigest())')
 
 # Create config file 
