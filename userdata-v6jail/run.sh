@@ -109,7 +109,6 @@ _log "ex -s /etc/ipfw.rules" <<EOM
 %s!__IPV4_HOST__!${IPV4_HOST}!gp
 %s!__IPV6_HOST__!${IPV6_HOST}!gp
 %s!__IPV4_NAT__!${IPV4_HOST}!gp
-%s!__NAT64_HOST__!${NAT64_HOST}!gp
 %s!__NAT64_NETWORK__!${NAT64_NETWORK}!gp
 wq
 EOM

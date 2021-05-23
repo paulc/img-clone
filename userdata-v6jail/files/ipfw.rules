@@ -3,7 +3,6 @@
 IPV4_HOST="__IPV4_HOST__/32"
 IPV6_HOST="__IPV6_HOST__/128"
 IPV4_NAT="__IPV4_NAT__/32"
-NAT64_HOST="__NAT64_HOST__/128"
 NAT64_NETWORK="__NAT64_NETWORK__"
 LINK_LOCAL="fe80::/64,ff02::/8"
 SERVICES="22,53"
@@ -43,6 +42,9 @@ ipfw add allow ${LOG} ip6 from any to ${IPV6_HOST},${LINK_LOCAL} ${SERVICES} kee
 # Allow IPv6
 ipfw add allow ${LOG} ip6 from ${IPV6_HOST},${NAT64_NETWORK} to any keep-state
 ipfw add allow ${LOG} ip6 from any to ${NAT64_NETWORK},${LINK_LOCAL} keep-state
+
+# Allow localhost
+ipfw add allow ${LOG} all from any to any via lo0
 
 # Deny all (always log)
 ipfw add deny log all from any to any
