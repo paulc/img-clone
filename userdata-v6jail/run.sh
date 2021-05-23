@@ -93,7 +93,7 @@ fi
 # SSHD keys
 _log "install -v -d -m 700 /root/.ssh"
 _log "install -v -m 600 /dev/null /root/.ssh/authorized_keys"
-_log "echo $ROOT_PK | tee -a /root/.ssh/authorized_keys"
+_log "printf \"%s %s\n\" \"$ROOT_PK\" | tee -a /root/.ssh/authorized_keys"
 
 # Install devfs config files
 _log "install -v -m 644 ./files/devfs.rules /etc"
@@ -145,8 +145,10 @@ _log "install -v -m 755 ./files/zone-del.sh /root"
 _log "install -v -m 755 ./files/linux-init.sh /root"
 
 # Create ZFS file
-_log "truncate -s 10G /var/zroot"
-_log "zpool create zroot /var/zroot"
+if ! zfs list zroot; then
+    _log "truncate -s 10G /var/zroot"
+    _log "zpool create zroot /var/zroot"
+fi
 
 # Create jail mountpoint
 _log "zfs create -o mountpoint=/jail -o compression=lz4 zroot/jail"
@@ -179,20 +181,21 @@ _log "uname -a | tee /jail/base/etc/motd"
 
 # Need bridge0 to exist and have address for v6jail
 _log "ifconfig bridge0 inet || ifconfig bridge0 create"
-_log "ifconfig bridge0 inet6 ${IPV6_ADDRESS} prefixlen 64"
-
-# Update base
-_log "/usr/local/bin/v6 update-base"
 
 # Use hostname as salt for v6 (prevents jail names colliding on same network)
-SALT=$(python3 -c 'import hashlib,subprocess;print(hashlib.md5(subprocess.run("hostname",capture_output=True).stdout).hexdigest())')
+SALT=$(/usr/local/bin/python3 -c 'import hashlib,subprocess;print(hashlib.md5(subprocess.run("hostname",capture_output=True).stdout).hexdigest())')
 
 # Create config file 
 if [ "${MODE}" = "ROUTED" ]; then
-    _log "/usr/local/bin/v6 config --salt $SALT --network ${ROUTED_NETWORK} | tee /usr/local/etc/v6jail.ini"
+    _log "ifconfig bridge0 inet6 ${NAT64_HOST} prefixlen ${NAT64_PREFIXLEN}"
+    _log "/usr/local/bin/v6 config --salt $SALT --network ${NAT64_NETWORK} | tee /usr/local/etc/v6jail.ini"
 else
+    _log "ifconfig bridge0 inet6 ${IPV6_HOST} prefixlen ${IPV6_PREFIXLEN}"
     _log "/usr/local/bin/v6 config --salt $SALT | tee /usr/local/etc/v6jail.ini"
 fi
+
+# Update base
+_log "/usr/local/bin/v6 update-base"
 
 # Remove /firstboot and reboot
 _log "rm -f /firstboot"
