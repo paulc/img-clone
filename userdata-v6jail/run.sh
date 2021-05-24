@@ -4,8 +4,7 @@ set -o pipefail
 set -o errexit
 set -o nounset
 
-# Source CONFIG 
-#
+# Script expects the following config vars
 # IPV4_HOST=
 # IPV6_HOST=
 # IPV6_PREFIXLEN=
@@ -18,7 +17,13 @@ set -o nounset
 # HOSTNAME=
 # MODE=ROUTED|BRIDGED
 
-. ./CONFIG
+# Source CONFIG if exists
+if [ -r ./CONFIG ]; then
+    . ./CONFIG
+fi
+
+# Check we have config
+: ${IPV4_HOST?Error: Config not found}
 
 # Ensure /usr/local/bin on PATH
 PATH="${PATH}:/usr/local/bin"
