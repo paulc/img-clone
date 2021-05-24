@@ -47,7 +47,7 @@ _log "sysrc hostname=\"${HOSTNAME}\""
 _log "install -v -m 644 ./files/periodic.conf /etc"
 
 # Configure standard rc.conf settings
-_log "sysrc -x ifconfig_DEFAULT"
+_log "sysrc -x ifconfig_DEFAULT || echo"
 _log "sysrc gateway_enable=YES \
             ipv6_gateway_enable=YES \
             defaultrouter=${IPV4_ROUTE} \
