@@ -96,9 +96,11 @@ EOM
 fi
 
 # SSHD keys
-_log "install -v -d -m 700 /root/.ssh"
-_log "install -v -m 600 /dev/null /root/.ssh/authorized_keys"
-_log "printf \"%s %s\n\" \"$ROOT_PK\" | tee -a /root/.ssh/authorized_keys"
+if [ ! -f /root/.ssh/authorized_keys ]; then
+    _log "install -v -d -m 700 /root/.ssh"
+    _log "install -v -m 600 /dev/null /root/.ssh/authorized_keys"
+    _log "printf \"%s %s %s\n\" $ROOT_PK | tee -a /root/.ssh/authorized_keys"
+fi
 
 # Install devfs config files
 _log "install -v -m 644 ./files/devfs.rules /etc"
